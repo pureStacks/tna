@@ -9,6 +9,10 @@ export default function Footer() {
   const whatsapp = contact.whatsapp || BUSINESS_INFO.whatsapp;
   const whatsappRaw = contact.whatsappRaw || BUSINESS_INFO.whatsappRaw;
 
+  const footer = data?.settings?.footer || {};
+  const footerDesc = footer.description || 'Providing quality, fresh, and healthy catfish in Osun State, Nigeria. Your trusted partner for personal and commercial catfish supply.';
+  const copyright = footer.copyright || '© 2026 TNA catfish. All Rights Reserved.';
+
   return (
     <footer className="bg-gray-900 text-white pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,7 +24,7 @@ export default function Footer() {
               TNA<span className="text-yellow-500">Catfish</span>
             </h3>
             <p className="text-gray-400 leading-relaxed max-w-sm mb-6">
-              Providing quality, fresh, and healthy catfish in Osun State, Nigeria. Your trusted partner for personal and commercial catfish supply.
+              {footerDesc}
             </p>
           </div>
 
@@ -59,12 +63,11 @@ export default function Footer() {
 
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-gray-500 text-sm">
-            © 2026 TNA catfish. All Rights Reserved.
+            {copyright}
           </p>
           <div className="flex space-x-6 items-center">
             <a href="#home" className="text-gray-500 hover:text-green-400 text-sm transition-colors">Privacy Policy</a>
             <a href="#home" className="text-gray-500 hover:text-green-400 text-sm transition-colors">Terms of Service</a>
-            <a href="/admin/login" className="text-gray-500 hover:text-green-400 text-sm transition-colors">Admin Portal</a>
           </div>
         </div>
 
