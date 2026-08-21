@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { DEFAULT_SETTINGS, DEFAULT_PRODUCTS, DEFAULT_TESTIMONIALS } from './defaultData.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || '';

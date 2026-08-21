@@ -1,38 +1,27 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import { supabase } from '../db.js';
 import { requireAuth } from './auth.js';
 
 const router = express.Router();
 router.use(requireAuth);
 
-// Ensure upload dir exists
-const uploadDir = path.join(process.cwd(), 'data', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Set up multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
+// Set up in-memory storage for serverless and container compatibility
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB limit
 });
-
-const upload = multer({ storage: storage });
 
 router.post('/upload', upload.single('image'), (req, res) => {
   const reqWithFile = req as any;
   if (!reqWithFile.file) {
     return res.status(400).json({ error: 'No image uploaded' });
   }
-  const imageUrl = `/uploads/${reqWithFile.file.filename}`;
+  const file = reqWithFile.file;
+  const mimeType = file.mimetype || 'image/jpeg';
+  const base64 = file.buffer.toString('base64');
+  const imageUrl = `data:${mimeType};base64,${base64}`;
   res.json({ url: imageUrl });
 });
 
