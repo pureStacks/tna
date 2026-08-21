@@ -31,7 +31,7 @@ export default function Header() {
           <div className="flex items-center">
             <a href="#home" className="text-2xl font-bold tracking-tight">
               <span className="text-green-800">TNA</span>
-              <span className="text-yellow-500">Catfish</span>
+              <span className="text-amber-500">Catfish</span>
             </a>
           </div>
 

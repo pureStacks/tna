@@ -1,18 +1,26 @@
 import express from 'express';
-import { db, saveDb } from '../db.js';
+import { supabase } from '../db.js';
 
 const router = express.Router();
 
 router.get('/data', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+
   try {
-    const settings = db.settings;
-    const products = db.products.filter((p: any) => p.is_published === 1).sort((a: any, b: any) => a.order_index - b.order_index);
-    const testimonials = db.testimonials.filter((t: any) => t.is_published === 1).sort((a: any, b: any) => a.order_index - b.order_index);
+    const [settingsRes, productsRes, testimonialsRes] = await Promise.all([
+      supabase.from('settings').select('*').limit(1).single(),
+      supabase.from('products').select('*').eq('is_published', 1).order('order_index', { ascending: true }),
+      supabase.from('testimonials').select('*').eq('is_published', 1).order('order_index', { ascending: true })
+    ]);
+
+    if (settingsRes.error) throw settingsRes.error;
+    if (productsRes.error) throw productsRes.error;
+    if (testimonialsRes.error) throw testimonialsRes.error;
 
     res.json({
-      settings,
-      products,
-      testimonials
+      settings: settingsRes.data,
+      products: productsRes.data,
+      testimonials: testimonialsRes.data
     });
   } catch (error) {
     console.error(error);
@@ -22,23 +30,26 @@ router.get('/data', async (req, res) => {
 
 // For users submitting a review from the frontend
 router.post('/review', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+
   const { name, location, text, rating } = req.body;
   if (!name || !location || !text) return res.status(400).json({ error: 'Missing fields' });
 
   try {
     // New reviews are unpublished by default so admin can approve them
-    db.testimonials.push({
-      id: Date.now(),
+    const { error } = await supabase.from('testimonials').insert([{
       name,
       location,
       text,
       rating,
       is_published: 0,
       order_index: 99
-    });
-    saveDb();
+    }]);
+
+    if (error) throw error;
     res.json({ success: true });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to submit review' });
   }
 });

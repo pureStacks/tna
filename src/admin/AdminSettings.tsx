@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { useCMS } from "../context/CMSContext";
 import HeaderSettings from './settings/HeaderSettings';
 import HomeSettings from './settings/HomeSettings';
 import AboutSettings from './settings/AboutSettings';
@@ -10,7 +11,8 @@ import FooterSettings from './settings/FooterSettings';
 export default function AdminSettings() {
   const [settings, setSettings] = useState<any>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState("home");
+  const { refreshData } = useCMS();
 
   useEffect(() => {
     fetch('/api/cms/settings')
@@ -30,6 +32,7 @@ export default function AdminSettings() {
       });
       if (res.ok) {
         toast.success(`${key} section saved successfully`);
+        refreshData();
       } else {
         toast.error('Failed to save section');
       }

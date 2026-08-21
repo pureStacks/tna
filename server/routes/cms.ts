@@ -2,11 +2,10 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { db, saveDb } from '../db.js';
+import { supabase } from '../db.js';
 import { requireAuth } from './auth.js';
 
 const router = express.Router();
-
 router.use(requireAuth);
 
 // Ensure upload dir exists
@@ -38,90 +37,117 @@ router.post('/upload', upload.single('image'), (req, res) => {
 });
 
 // ================= SETTINGS =================
-
-router.get('/settings', (req, res) => {
-  res.json(db.settings);
+router.get('/settings', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
+  const { data, error } = await supabase.from('settings').select('*').limit(1).single();
+  if (error) return res.status(500).json({ error: error.message });
+  
+  res.json(data);
 });
 
-router.put('/settings/:key', (req, res) => {
+router.put('/settings/:key', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
   const { key } = req.params;
   const value = req.body;
-  db.settings[key] = value;
-  saveDb();
+  
+  // We assume there's exactly one row in settings with id = 1
+  const { error } = await supabase.from('settings').update({ [key]: value }).eq('id', 1);
+  if (error) return res.status(500).json({ error: error.message });
+  
   res.json({ success: true });
 });
 
 // ================= PRODUCTS =================
-
-router.get('/products', (req, res) => {
-  res.json(db.products.sort((a: any, b: any) => a.order_index - b.order_index));
+router.get('/products', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
+  const { data, error } = await supabase.from('products').select('*').order('order_index', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  
+  res.json(data);
 });
 
-router.post('/products', (req, res) => {
+router.post('/products', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
   const { name, description, price, image, badge, is_published, order_index } = req.body;
-  const newProduct = {
-    id: Date.now(),
+  
+  const { data, error } = await supabase.from('products').insert([{
     name, description, price, image, badge: badge || '', is_published: is_published ? 1 : 0, order_index: order_index || 0
-  };
-  db.products.push(newProduct);
-  saveDb();
-  res.json({ id: newProduct.id });
+  }]).select().single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ id: data.id });
 });
 
-router.put('/products/:id', (req, res) => {
+router.put('/products/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
   const { id } = req.params;
   const { name, description, price, image, badge, is_published, order_index } = req.body;
-  const idx = db.products.findIndex((p: any) => p.id == id);
-  if (idx > -1) {
-    db.products[idx] = {
-      ...db.products[idx],
-      name, description, price, image, badge: badge || '', is_published: is_published ? 1 : 0, order_index: order_index || 0
-    };
-    saveDb();
-  }
+  
+  const { error } = await supabase.from('products').update({
+    name, description, price, image, badge: badge || '', is_published: is_published ? 1 : 0, order_index: order_index || 0
+  }).eq('id', id);
+  
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-router.delete('/products/:id', (req, res) => {
-  db.products = db.products.filter((p: any) => p.id != req.params.id);
-  saveDb();
+router.delete('/products/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
+  const { error } = await supabase.from('products').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  
   res.json({ success: true });
 });
 
 // ================= TESTIMONIALS =================
-
-router.get('/testimonials', (req, res) => {
-  res.json(db.testimonials.sort((a: any, b: any) => a.order_index - b.order_index));
+router.get('/testimonials', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
+  const { data, error } = await supabase.from('testimonials').select('*').order('order_index', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  
+  res.json(data);
 });
 
-router.post('/testimonials', (req, res) => {
+router.post('/testimonials', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
   const { name, location, text, rating, is_published, order_index } = req.body;
-  const newTestimonial = {
-    id: Date.now(),
+  
+  const { data, error } = await supabase.from('testimonials').insert([{
     name, location, text, rating: rating || 5, is_published: is_published ? 1 : 0, order_index: order_index || 0
-  };
-  db.testimonials.push(newTestimonial);
-  saveDb();
-  res.json({ id: newTestimonial.id });
+  }]).select().single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ id: data.id });
 });
 
-router.put('/testimonials/:id', (req, res) => {
+router.put('/testimonials/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
   const { id } = req.params;
   const { name, location, text, rating, is_published, order_index } = req.body;
-  const idx = db.testimonials.findIndex((t: any) => t.id == id);
-  if (idx > -1) {
-    db.testimonials[idx] = {
-      ...db.testimonials[idx],
-      name, location, text, rating, is_published: is_published ? 1 : 0, order_index: order_index || 0
-    };
-    saveDb();
-  }
+  
+  const { error } = await supabase.from('testimonials').update({
+    name, location, text, rating, is_published: is_published ? 1 : 0, order_index: order_index || 0
+  }).eq('id', id);
+  
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
-router.delete('/testimonials/:id', (req, res) => {
-  db.testimonials = db.testimonials.filter((t: any) => t.id != req.params.id);
-  saveDb();
+router.delete('/testimonials/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  
+  const { error } = await supabase.from('testimonials').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  
   res.json({ success: true });
 });
 

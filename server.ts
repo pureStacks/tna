@@ -3,7 +3,7 @@ import path from 'path';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
-import { initializeDatabase, db } from './server/db.js';
+import { initializeDatabase } from './server/db.js';
 import authRoutes from './server/routes/auth.js';
 import cmsRoutes from './server/routes/cms.js';
 import publicRoutes from './server/routes/public.js';

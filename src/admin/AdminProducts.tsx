@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { Plus, Trash2, Edit, Copy, X } from 'lucide-react';
 import ImageUploader from './components/ImageUploader';
 import ConfirmModal from './components/ConfirmModal';
+import { useCMS } from '../context/CMSContext';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<any[]>([]);
@@ -11,6 +12,7 @@ export default function AdminProducts() {
   const [editForm, setEditForm] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const { refreshData } = useCMS();
 
   useEffect(() => {
     fetchProducts();
@@ -22,6 +24,7 @@ export default function AdminProducts() {
       .then(data => {
         setProducts(data);
         setLoading(false);
+        refreshData();
       });
   };
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Trash2, Edit, Copy, Plus, X } from 'lucide-react';
 import ConfirmModal from './components/ConfirmModal';
+import { useCMS } from '../context/CMSContext';
 
 export default function AdminTestimonials() {
   const [testimonials, setTestimonials] = useState<any[]>([]);
@@ -11,6 +12,7 @@ export default function AdminTestimonials() {
   const [editForm, setEditForm] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const { refreshData } = useCMS();
 
   useEffect(() => {
     fetchTestimonials();
@@ -22,6 +24,7 @@ export default function AdminTestimonials() {
       .then(data => {
         setTestimonials(data);
         setLoading(false);
+        refreshData();
       });
   };
 
