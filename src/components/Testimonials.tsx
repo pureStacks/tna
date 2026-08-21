@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Star, MessageSquarePlus, CheckCircle2, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCMS } from '../context/CMSContext';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 export default function Testimonials() {
   const { data } = useCMS();
@@ -43,14 +44,13 @@ export default function Testimonials() {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/public/review', {
+      const res = await apiFetch('/api/public/review', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newReview)
       });
       
-      const result = await res.json();
-      if (res.ok) {
+      const result = await parseApiResponse(res);
+      if (result.ok) {
         setIsSubmitted(true);
         // Reset form after a delay if they want to submit another
         setTimeout(() => {
@@ -65,9 +65,9 @@ export default function Testimonials() {
       } else {
         toast.error(result.error || 'Failed to submit review');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error('Network error. Please try again.');
+      toast.error(err?.message || 'Failed to submit review. Please try again.');
     } finally {
       setSubmitting(false);
     }

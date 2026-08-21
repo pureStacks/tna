@@ -1,6 +1,7 @@
 import { useState, useRef, ChangeEvent } from 'react';
 import toast from 'react-hot-toast';
 import { Upload, Link as LinkIcon, X } from 'lucide-react';
+import { apiFetch, parseApiResponse } from '../../lib/api';
 
 interface ImageUploaderProps {
   value: string;
@@ -22,20 +23,20 @@ export default function ImageUploader({ value, onChange, label = 'Image' }: Imag
 
     setUploading(true);
     try {
-      const res = await fetch('/api/cms/upload', {
+      const res = await apiFetch('/api/cms/upload', {
         method: 'POST',
         body: formData,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        onChange(data.url);
+      const result = await parseApiResponse(res);
+      if (result.ok && result.data?.url) {
+        onChange(result.data.url);
         toast.success('Image uploaded successfully');
       } else {
-        toast.error('Failed to upload image');
+        toast.error(result.error || 'Failed to upload image');
       }
-    } catch (error) {
-      toast.error('Network error uploading image');
+    } catch (error: any) {
+      toast.error(error?.message || 'Error uploading image');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

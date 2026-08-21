@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import toast from 'react-hot-toast';
 import { Shield, KeyRound, ArrowLeft, Mail, CheckCircle2, Lock, Key } from 'lucide-react';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 export default function AdminLogin() {
   const [password, setPassword] = useState('');
@@ -20,20 +21,23 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
       });
-      const data = await res.json();
-      if (res.ok) {
+      const result = await parseApiResponse(res);
+      if (result.ok && result.data?.success) {
+        if (result.data.token) {
+          localStorage.setItem('adminToken', result.data.token);
+        }
         toast.success('Logged in successfully');
         window.location.href = '/admin'; // Force full reload to update layout/auth state
       } else {
-        toast.error(data.error || 'Login failed');
+        toast.error(result.error || 'Login failed');
       }
-    } catch (error) {
-      toast.error('Network error');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast.error(error?.message || 'Login request failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -48,25 +52,24 @@ export default function AdminLogin() {
     setLoading(true);
     setDevCodeNotice(null);
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: recoveryEmail })
       });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || 'Recovery code generated!');
-        setMaskedEmail(data.maskedEmail || recoveryEmail);
-        if (data.devCode) {
-          setDevCodeNotice(data.devCode);
-          setRecoveryCode(data.devCode); // Auto-fill for developer/admin convenience
+      const result = await parseApiResponse(res);
+      if (result.ok && result.data?.success) {
+        toast.success(result.data.message || 'Recovery code generated!');
+        setMaskedEmail(result.data.maskedEmail || recoveryEmail);
+        if (result.data.devCode) {
+          setDevCodeNotice(result.data.devCode);
+          setRecoveryCode(result.data.devCode); // Auto-fill for developer/admin convenience
         }
         setForgotStep('reset');
       } else {
-        toast.error(data.error || 'Recovery request failed');
+        toast.error(result.error || 'Recovery request failed');
       }
-    } catch (err) {
-      toast.error('Network error');
+    } catch (err: any) {
+      toast.error(err?.message || 'Recovery request failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -86,17 +89,16 @@ export default function AdminLogin() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: recoveryEmail,
           code: recoveryCode.trim(),
           newPassword
         })
       });
-      const data = await res.json();
-      if (res.ok) {
+      const result = await parseApiResponse(res);
+      if (result.ok && result.data?.success) {
         toast.success('Password reset successfully! Please sign in with your new password.');
         setIsForgotMode(false);
         setForgotStep('request');
@@ -106,10 +108,10 @@ export default function AdminLogin() {
         setRecoveryCode('');
         setDevCodeNotice(null);
       } else {
-        toast.error(data.error || 'Password reset failed');
+        toast.error(result.error || 'Password reset failed');
       }
-    } catch (err) {
-      toast.error('Network error');
+    } catch (err: any) {
+      toast.error(err?.message || 'Password reset request failed');
     } finally {
       setLoading(false);
     }

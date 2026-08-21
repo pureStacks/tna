@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit, Copy, X } from 'lucide-react';
 import ImageUploader from './components/ImageUploader';
 import ConfirmModal from './components/ConfirmModal';
 import { useCMS } from '../context/CMSContext';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<any[]>([]);
@@ -18,14 +19,19 @@ export default function AdminProducts() {
     fetchProducts();
   }, []);
 
-  const fetchProducts = () => {
-    fetch('/api/cms/products')
-      .then(res => res.json())
-      .then(data => {
-        setProducts(data);
-        setLoading(false);
-        refreshData();
-      });
+  const fetchProducts = async () => {
+    try {
+      const res = await apiFetch('/api/cms/products');
+      const result = await parseApiResponse(res);
+      if (result.ok && Array.isArray(result.data)) {
+        setProducts(result.data);
+      }
+    } catch (err) {
+      console.warn('Error fetching products:', err);
+    } finally {
+      setLoading(false);
+      refreshData();
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -35,30 +41,33 @@ export default function AdminProducts() {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      const res = await fetch(`/api/cms/products/${itemToDelete}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/cms/products/${itemToDelete}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Product deleted');
         fetchProducts();
+      } else {
+        toast.error('Failed to delete product');
       }
     } catch (err) {
-      toast.error('Network error');
+      toast.error('Request failed');
     }
     setItemToDelete(null);
   };
 
   const togglePublish = async (product: any) => {
     try {
-      const res = await fetch(`/api/cms/products/${product.id}`, {
+      const res = await apiFetch(`/api/cms/products/${product.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...product, is_published: product.is_published ? 0 : 1 })
       });
       if (res.ok) {
         toast.success(`Product ${product.is_published ? 'unpublished' : 'published'}`);
         fetchProducts();
+      } else {
+        toast.error('Failed to update product');
       }
     } catch (err) {
-      toast.error('Network error');
+      toast.error('Request failed');
     }
   };
 
@@ -72,9 +81,8 @@ export default function AdminProducts() {
     delete newProduct.id;
     
     try {
-      const res = await fetch('/api/cms/products', {
+      const res = await apiFetch('/api/cms/products', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProduct)
       });
       if (res.ok) {
@@ -117,9 +125,8 @@ export default function AdminProducts() {
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId ? `/api/cms/products/${editingId}` : '/api/cms/products';
       
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
       });
       
@@ -128,10 +135,11 @@ export default function AdminProducts() {
         fetchProducts();
         closeModal();
       } else {
-        toast.error('Failed to save product');
+        const parsed = await parseApiResponse(res);
+        toast.error(parsed.error || 'Failed to save product');
       }
-    } catch (err) {
-      toast.error('Network error');
+    } catch (err: any) {
+      toast.error(err?.message || 'Request failed');
     }
   };
 

@@ -1,11 +1,16 @@
 {
+  "version": 2,
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api"
     },
     {
-      "source": "/(.*)",
+      "source": "/api",
+      "destination": "/api"
+    },
+    {
+      "source": "/((?!api|uploads).*)",
       "destination": "/index.html"
     }
   ]

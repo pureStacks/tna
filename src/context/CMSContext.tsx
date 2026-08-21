@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { DEFAULT_CMS_DATA } from '../data/defaultData';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 type CMSContextType = {
   data: any;
@@ -24,14 +25,15 @@ export function CMSProvider({ children }: { children: React.ReactNode }) {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('/api/public/data');
-      if (!res.ok) {
+      const res = await apiFetch('/api/public/data');
+      const result = await parseApiResponse(res);
+      if (!result.ok || !result.data) {
         console.warn('Could not fetch latest CMS data from server, using cached/default content.');
         setData((prev: any) => prev || DEFAULT_CMS_DATA);
         setError(null);
         return;
       }
-      const json = await res.json();
+      const json = result.data;
       if (json && json.settings) {
         // Deep merge with defaults to protect against any missing subfields
         const mergedData = {

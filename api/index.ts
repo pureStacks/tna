@@ -12,13 +12,23 @@ const app = express();
 // Initialize DB asynchronously
 initializeDatabase().catch((err) => console.error('Database init error:', err));
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// API Routes
+// API Routes mounted on both /api/* and root /* to handle all Vercel rewrite routing patterns
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/cms', cmsRoutes);
+app.use('/cms', cmsRoutes);
+
 app.use('/api/public', publicRoutes);
+app.use('/public', publicRoutes);
+
+// Health check endpoints
+app.get('/api', (req, res) => res.json({ status: 'ok', service: 'TNA Catfish API' }));
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'TNA Catfish API' }));
 
 export default app;
+

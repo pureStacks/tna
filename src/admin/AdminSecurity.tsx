@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import toast from 'react-hot-toast';
 import { Mail, Shield, Key, CheckCircle2, Lock } from 'lucide-react';
 import { useCMS } from '../context/CMSContext';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 export default function AdminSecurity() {
   const { refreshData } = useCMS();
@@ -16,12 +17,12 @@ export default function AdminSecurity() {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
-    fetch('/api/auth/backup-email')
-      .then(res => res.json())
-      .then(data => {
-        if (data.backupEmail) {
-          setBackupEmail(data.backupEmail);
-          setSavedBackupEmail(data.backupEmail);
+    apiFetch('/api/auth/backup-email')
+      .then(parseApiResponse)
+      .then(result => {
+        if (result.ok && result.data?.backupEmail) {
+          setBackupEmail(result.data.backupEmail);
+          setSavedBackupEmail(result.data.backupEmail);
         }
       })
       .catch(err => console.error('Failed to load backup email:', err))
@@ -36,21 +37,20 @@ export default function AdminSecurity() {
 
     setEmailLoading(true);
     try {
-      const res = await fetch('/api/auth/backup-email', {
+      const res = await apiFetch('/api/auth/backup-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ backupEmail })
       });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || 'Backup email updated successfully');
+      const result = await parseApiResponse(res);
+      if (result.ok && result.data?.success) {
+        toast.success(result.data.message || 'Backup email updated successfully');
         setSavedBackupEmail(backupEmail);
         refreshData();
       } else {
-        toast.error(data.error || 'Failed to update backup email');
+        toast.error(result.error || 'Failed to update backup email');
       }
-    } catch (err) {
-      toast.error('Network error while updating backup email');
+    } catch (err: any) {
+      toast.error(err?.message || 'Error while updating backup email');
     } finally {
       setEmailLoading(false);
     }
@@ -67,22 +67,21 @@ export default function AdminSecurity() {
     
     setPasswordLoading(true);
     try {
-      const res = await fetch('/api/auth/change-password', {
+      const res = await apiFetch('/api/auth/change-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword })
       });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || 'Password updated successfully');
+      const result = await parseApiResponse(res);
+      if (result.ok && result.data?.success) {
+        toast.success(result.data.message || 'Password updated successfully');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        toast.error(data.error || 'Failed to change password');
+        toast.error(result.error || 'Failed to change password');
       }
-    } catch (err) {
-      toast.error('Network error');
+    } catch (err: any) {
+      toast.error(err?.message || 'Password update request failed');
     } finally {
       setPasswordLoading(false);
     }

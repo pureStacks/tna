@@ -8,52 +8,86 @@ const router = express.Router();
 export const JWT_SECRET = process.env.JWT_SECRET || 'tna-catfish-super-secret-key-2026';
 
 router.post('/login', async (req, res) => {
-  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
-
   const { password } = req.body;
   if (!password) {
     return res.status(400).json({ error: 'Password is required' });
   }
 
-  const { data: admin, error } = await supabase.from('users').select('*').eq('username', 'admin').single();
+  // If Supabase is available, attempt database authentication
+  if (supabase) {
+    try {
+      const { data: admin, error } = await supabase.from('users').select('*').eq('username', 'admin').maybeSingle();
 
-  if (error || !admin) {
-    return res.status(500).json({ error: 'Admin account not found' });
-  }
+      if (admin) {
+        let isValid = false;
+        if (admin.password) {
+          if (admin.password.startsWith('$2b$') || admin.password.startsWith('$2a$') || admin.password.startsWith('$2y$')) {
+            try {
+              isValid = await bcrypt.compare(password, admin.password);
+            } catch (err) {
+              console.error('Bcrypt compare error:', err);
+            }
+          }
+          
+          // Fallback: check plain text if hash was corrupted or manually set
+          if (!isValid && (password === admin.password || (password === '@admin123' && admin.password.length < 50))) {
+            isValid = true;
+            // Auto upgrade / fix the hash in database
+            const hashedPassword = await bcrypt.hash(password, 10);
+            await supabase.from('users').update({ password: hashedPassword }).eq('id', admin.id);
+          }
+        }
 
-  let isValid = false;
-  if (admin.password) {
-    if (admin.password.startsWith('$2b$') || admin.password.startsWith('$2a$') || admin.password.startsWith('$2y$')) {
-      try {
-        isValid = await bcrypt.compare(password, admin.password);
-      } catch (err) {
-        console.error('Bcrypt compare error:', err);
+        if (isValid) {
+          const token = jwt.sign({ id: admin.id, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+          
+          res.cookie('adminToken', token, {
+            httpOnly: true,
+            secure: true, // Must be true for SameSite=None
+            sameSite: 'none', // Required for iframes
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          });
+
+          return res.json({ success: true, message: 'Logged in successfully', token });
+        } else {
+          return res.status(401).json({ error: 'Invalid password' });
+        }
+      } else {
+        // If users table has no admin row yet, check default password and seed it
+        if (password === '@admin123') {
+          const hashedPassword = await bcrypt.hash('@admin123', 10);
+          const { data: newAdmin } = await supabase.from('users').insert([{ username: 'admin', password: hashedPassword }]).select().maybeSingle();
+          const adminId = newAdmin ? newAdmin.id : 1;
+          const token = jwt.sign({ id: adminId, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+          
+          res.cookie('adminToken', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            maxAge: 24 * 60 * 60 * 1000
+          });
+
+          return res.json({ success: true, message: 'Logged in successfully', token });
+        }
       }
-    }
-    
-    // Fallback: check plain text if hash was corrupted or manually set
-    if (!isValid && (password === admin.password || (password === '@admin123' && admin.password.length < 50))) {
-      isValid = true;
-      // Auto upgrade / fix the hash in database
-      const hashedPassword = await bcrypt.hash(password, 10);
-      await supabase.from('users').update({ password: hashedPassword }).eq('id', admin.id);
+    } catch (dbErr) {
+      console.error('Supabase query error during login:', dbErr);
     }
   }
 
-  if (!isValid) {
-    return res.status(401).json({ error: 'Invalid password' });
+  // Standalone / cold fallback for default admin password
+  if (password === '@admin123') {
+    const token = jwt.sign({ id: 1, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie('adminToken', token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      maxAge: 24 * 60 * 60 * 1000
+    });
+    return res.json({ success: true, message: 'Logged in successfully', token });
   }
 
-  const token = jwt.sign({ id: admin.id, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
-  
-  res.cookie('adminToken', token, {
-    httpOnly: true,
-    secure: true, // Must be true for SameSite=None
-    sameSite: 'none', // Required for iframes
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  });
-
-  res.json({ success: true, message: 'Logged in successfully' });
+  return res.status(401).json({ error: 'Invalid password' });
 });
 
 router.post('/logout', (req, res) => {
@@ -66,7 +100,12 @@ router.post('/logout', (req, res) => {
 });
 
 export const requireAuth = (req: any, res: any, next: any) => {
-  const token = req.cookies.adminToken;
+  const cookieToken = req.cookies?.adminToken;
+  const headerToken = req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+    ? req.headers.authorization.split(' ')[1]
+    : null;
+  const token = cookieToken || headerToken;
+
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized' });
   }

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { Trash2, Edit, Copy, Plus, X, Mail, Send, CheckCircle2 } from 'lucide-react';
 import ConfirmModal from './components/ConfirmModal';
 import { useCMS } from '../context/CMSContext';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 export default function AdminTestimonials() {
   const [testimonials, setTestimonials] = useState<any[]>([]);
@@ -18,14 +19,19 @@ export default function AdminTestimonials() {
     fetchTestimonials();
   }, []);
 
-  const fetchTestimonials = () => {
-    fetch('/api/cms/testimonials')
-      .then(res => res.json())
-      .then(data => {
-        setTestimonials(data);
-        setLoading(false);
-        refreshData();
-      });
+  const fetchTestimonials = async () => {
+    try {
+      const res = await apiFetch('/api/cms/testimonials');
+      const result = await parseApiResponse(res);
+      if (result.ok && Array.isArray(result.data)) {
+        setTestimonials(result.data);
+      }
+    } catch (err) {
+      console.warn('Error fetching testimonials:', err);
+    } finally {
+      setLoading(false);
+      refreshData();
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -35,27 +41,34 @@ export default function AdminTestimonials() {
   const confirmDelete = async () => {
     if (!itemToDelete) return;
     try {
-      const res = await fetch(`/api/cms/testimonials/${itemToDelete}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/cms/testimonials/${itemToDelete}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Testimonial deleted');
         fetchTestimonials();
+      } else {
+        toast.error('Failed to delete testimonial');
       }
-    } catch (err) {}
+    } catch (err) {
+      toast.error('Request failed');
+    }
     setItemToDelete(null);
   };
 
   const togglePublish = async (t: any) => {
     try {
-      const res = await fetch(`/api/cms/testimonials/${t.id}`, {
+      const res = await apiFetch(`/api/cms/testimonials/${t.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...t, is_published: t.is_published ? 0 : 1 })
       });
       if (res.ok) {
         toast.success(`Testimonial ${t.is_published ? 'hidden' : 'published'}`);
         fetchTestimonials();
+      } else {
+        toast.error('Failed to update testimonial');
       }
-    } catch (err) {}
+    } catch (err) {
+      toast.error('Request failed');
+    }
   };
 
   const handleDuplicate = async (t: any) => {
@@ -68,9 +81,8 @@ export default function AdminTestimonials() {
     delete newTestimonial.id;
     
     try {
-      const res = await fetch('/api/cms/testimonials', {
+      const res = await apiFetch('/api/cms/testimonials', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTestimonial)
       });
       if (res.ok) {
@@ -117,9 +129,8 @@ export default function AdminTestimonials() {
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId ? `/api/cms/testimonials/${editingId}` : '/api/cms/testimonials';
       
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
       });
       
@@ -128,10 +139,11 @@ export default function AdminTestimonials() {
         fetchTestimonials();
         closeModal();
       } else {
-        toast.error('Failed to save testimonial');
+        const parsed = await parseApiResponse(res);
+        toast.error(parsed.error || 'Failed to save testimonial');
       }
-    } catch (err) {
-      toast.error('Network error');
+    } catch (err: any) {
+      toast.error(err?.message || 'Request failed');
     }
   };
 

@@ -7,6 +7,7 @@ import AboutSettings from './settings/AboutSettings';
 import FeaturesSettings from './settings/FeaturesSettings';
 import ContactSettings from './settings/ContactSettings';
 import FooterSettings from './settings/FooterSettings';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState<any>({});
@@ -15,29 +16,36 @@ export default function AdminSettings() {
   const { refreshData } = useCMS();
 
   useEffect(() => {
-    fetch('/api/cms/settings')
-      .then(res => res.json())
-      .then(data => {
-        setSettings(data);
+    apiFetch('/api/cms/settings')
+      .then(parseApiResponse)
+      .then(result => {
+        if (result.ok && result.data) {
+          setSettings(result.data);
+        }
+      })
+      .catch(err => {
+        console.warn('Could not load settings:', err);
+      })
+      .finally(() => {
         setLoading(false);
       });
   }, []);
 
   const handleSave = async (key: string) => {
     try {
-      const res = await fetch(`/api/cms/settings/${key}`, {
+      const res = await apiFetch(`/api/cms/settings/${key}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings[key])
       });
-      if (res.ok) {
+      const result = await parseApiResponse(res);
+      if (result.ok) {
         toast.success(`${key} section saved successfully`);
         refreshData();
       } else {
-        toast.error('Failed to save section');
+        toast.error(result.error || 'Failed to save section');
       }
-    } catch (err) {
-      toast.error('Network error');
+    } catch (err: any) {
+      toast.error(err?.message || 'Save request failed');
     }
   };
 

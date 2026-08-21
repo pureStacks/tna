@@ -2,13 +2,14 @@ import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Settings, ShoppingBag, MessageSquare, LogOut, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { apiFetch } from '../lib/api';
 
 export default function AdminLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const location = useLocation();
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    apiFetch('/api/auth/me')
       .then(res => {
         if (res.ok) setIsAuthenticated(true);
         else setIsAuthenticated(false);
@@ -17,7 +18,12 @@ export default function AdminLayout() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    }
+    localStorage.removeItem('adminToken');
     toast.success('Logged out successfully');
     window.location.href = '/admin/login';
   };

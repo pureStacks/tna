@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users, ShoppingBag, Eye, Star } from 'lucide-react';
+import { apiFetch, parseApiResponse } from '../lib/api';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -9,13 +10,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/cms/products').then(res => res.json()),
-      fetch('/api/cms/testimonials').then(res => res.json())
-    ]).then(([products, testimonials]) => {
+      apiFetch('/api/cms/products').then(parseApiResponse),
+      apiFetch('/api/cms/testimonials').then(parseApiResponse)
+    ]).then(([productsRes, testimonialsRes]) => {
       setStats({
-        products: products.length,
-        testimonials: testimonials.length
+        products: Array.isArray(productsRes.data) ? productsRes.data.length : 0,
+        testimonials: Array.isArray(testimonialsRes.data) ? testimonialsRes.data.length : 0
       });
+    }).catch(err => {
+      console.warn('Could not load dashboard stats:', err);
     });
   }, []);
 
