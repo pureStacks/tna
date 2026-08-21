@@ -61,9 +61,10 @@ export default function Footer() {
           <p className="text-gray-500 text-sm">
             © 2026 TNA catfish. All Rights Reserved.
           </p>
-          <div className="flex space-x-6">
+          <div className="flex space-x-6 items-center">
             <a href="#home" className="text-gray-500 hover:text-green-400 text-sm transition-colors">Privacy Policy</a>
             <a href="#home" className="text-gray-500 hover:text-green-400 text-sm transition-colors">Terms of Service</a>
+            <a href="/admin/login" className="text-gray-500 hover:text-green-400 text-sm transition-colors">Admin Portal</a>
           </div>
         </div>
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { CMSProvider, useCMS } from './context/CMSContext';
 
@@ -77,11 +77,16 @@ export default function App() {
           {/* Admin Protected Dashboard */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="testimonials" element={<AdminTestimonials />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="security" element={<AdminSecurity />} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
           </Route>
+
+          {/* Catch-all fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </CMSProvider>
