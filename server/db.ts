@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import bcrypt from 'bcrypt';
+import { DEFAULT_SETTINGS, DEFAULT_PRODUCTS, DEFAULT_TESTIMONIALS } from './defaultData.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -34,6 +35,28 @@ export async function initializeDatabase() {
       console.log('Seeding initial admin user into Supabase...');
       const hashedPassword = await bcrypt.hash('@admin123', 10);
       await supabase.from('users').insert([{ username: 'admin', password: hashedPassword }]);
+    }
+
+    // Seed settings if empty
+    const { data: settings } = await supabase.from('settings').select('id').limit(1);
+    if (!settings || settings.length === 0) {
+      console.log('Seeding default settings into Supabase...');
+      const { id, ...initialSettings } = DEFAULT_SETTINGS;
+      await supabase.from('settings').insert([{ id: 1, ...initialSettings }]);
+    }
+
+    // Seed products if empty
+    const { data: products } = await supabase.from('products').select('id').limit(1);
+    if (!products || products.length === 0) {
+      console.log('Seeding default products into Supabase...');
+      await supabase.from('products').insert(DEFAULT_PRODUCTS.map(({ id, ...p }) => p));
+    }
+
+    // Seed testimonials if empty
+    const { data: testimonials } = await supabase.from('testimonials').select('id').limit(1);
+    if (!testimonials || testimonials.length === 0) {
+      console.log('Seeding default testimonials into Supabase...');
+      await supabase.from('testimonials').insert(DEFAULT_TESTIMONIALS.map(({ id, ...t }) => t));
     }
   } catch (err) {
     console.error('Error during Supabase initialization:', err);

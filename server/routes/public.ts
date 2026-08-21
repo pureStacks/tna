@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../db.js';
+import { DEFAULT_SETTINGS, DEFAULT_PRODUCTS, DEFAULT_TESTIMONIALS } from '../defaultData.js';
 
 const router = express.Router();
 
@@ -9,33 +10,62 @@ function sanitizeLocation(rawLocation: string = ''): string {
 }
 
 router.get('/data', async (req, res) => {
-  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
-
   try {
-    const [settingsRes, productsRes, testimonialsRes] = await Promise.all([
-      supabase.from('settings').select('*').limit(1).single(),
+    if (!supabase) {
+      console.warn('⚠️ Supabase not configured. Serving default CMS content.');
+      return res.json({
+        settings: DEFAULT_SETTINGS,
+        products: DEFAULT_PRODUCTS,
+        testimonials: DEFAULT_TESTIMONIALS
+      });
+    }
+
+    const [settingsRes, productsRes, testimonialsRes] = await Promise.allSettled([
+      supabase.from('settings').select('*').limit(1).maybeSingle(),
       supabase.from('products').select('*').eq('is_published', 1).order('order_index', { ascending: true }),
       supabase.from('testimonials').select('*').eq('is_published', 1).order('order_index', { ascending: true })
     ]);
 
-    if (settingsRes.error) throw settingsRes.error;
-    if (productsRes.error) throw productsRes.error;
-    if (testimonialsRes.error) throw testimonialsRes.error;
+    let settings = DEFAULT_SETTINGS;
+    if (settingsRes.status === 'fulfilled' && settingsRes.value && settingsRes.value.data) {
+      const dbSettings = settingsRes.value.data;
+      settings = {
+        ...DEFAULT_SETTINGS,
+        ...dbSettings,
+        home: { ...DEFAULT_SETTINGS.home, ...(dbSettings.home || {}) },
+        about: { ...DEFAULT_SETTINGS.about, ...(dbSettings.about || {}) },
+        features: { ...DEFAULT_SETTINGS.features, ...(dbSettings.features || {}) },
+        contact: { ...DEFAULT_SETTINGS.contact, ...(dbSettings.contact || {}) },
+        footer: { ...DEFAULT_SETTINGS.footer, ...(dbSettings.footer || {}) },
+        header: { ...DEFAULT_SETTINGS.header, ...(dbSettings.header || {}) }
+      };
+    }
 
-    // Sanitize customer email from public testimonials for privacy
-    const sanitizedTestimonials = (testimonialsRes.data || []).map((t: any) => ({
-      ...t,
-      location: sanitizeLocation(t.location)
-    }));
+    let products = DEFAULT_PRODUCTS;
+    if (productsRes.status === 'fulfilled' && productsRes.value && productsRes.value.data && productsRes.value.data.length > 0) {
+      products = productsRes.value.data;
+    }
+
+    let testimonials = DEFAULT_TESTIMONIALS;
+    if (testimonialsRes.status === 'fulfilled' && testimonialsRes.value && testimonialsRes.value.data && testimonialsRes.value.data.length > 0) {
+      testimonials = testimonialsRes.value.data.map((t: any) => ({
+        ...t,
+        location: sanitizeLocation(t.location)
+      }));
+    }
 
     res.json({
-      settings: settingsRes.data,
-      products: productsRes.data,
-      testimonials: sanitizedTestimonials
+      settings,
+      products,
+      testimonials
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch public data' });
+    console.error('Error fetching public CMS data, serving default fallback:', error);
+    res.json({
+      settings: DEFAULT_SETTINGS,
+      products: DEFAULT_PRODUCTS,
+      testimonials: DEFAULT_TESTIMONIALS
+    });
   }
 });
 

@@ -30,10 +30,16 @@ import AdminTestimonials from './admin/AdminTestimonials';
 import AdminSecurity from './admin/AdminSecurity';
 
 function FrontendLayout() {
-  const { loading, error } = useCMS();
+  const { loading } = useCMS();
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-green-800 font-bold">Loading Website...</div>;
-  if (error) return <div className="min-h-screen flex items-center justify-center text-red-600 font-bold">Error: {error}</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-green-800">
+        <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p className="font-semibold text-gray-700">Loading TNA Catfish...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 scroll-smooth selection:bg-green-200 selection:text-green-900">
