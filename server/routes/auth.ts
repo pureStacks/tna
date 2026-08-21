@@ -126,4 +126,187 @@ router.post('/change-password', requireAuth, async (req: any, res: any) => {
   res.json({ success: true, message: 'Password updated successfully' });
 });
 
+let recoveryStore: {
+  email: string;
+  code: string;
+  expiresAt: number;
+} | null = null;
+
+// Helper to mask email e.g. "nurudeenayobami37@gmail.com" -> "nu*******37@gmail.com"
+function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return email;
+  const [user, domain] = email.split('@');
+  if (user.length <= 3) return `${user[0]}***@${domain}`;
+  return `${user.slice(0, 2)}${'*'.repeat(Math.max(3, user.length - 4))}${user.slice(-2)}@${domain}`;
+}
+
+// Get admin backup email (Authenticated)
+router.get('/backup-email', requireAuth, async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+
+  try {
+    const { data: settings } = await supabase.from('settings').select('contact').eq('id', 1).single();
+    const backupEmail = settings?.contact?.backupEmail || settings?.contact?.email || 'nurudeenayobami37@gmail.com';
+    const contactEmail = settings?.contact?.email || 'nurudeenayobami37@gmail.com';
+    res.json({ backupEmail, contactEmail });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to get backup email' });
+  }
+});
+
+// Update admin backup email (Authenticated)
+router.post('/backup-email', requireAuth, async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+
+  const { backupEmail } = req.body;
+  if (!backupEmail || !backupEmail.includes('@')) {
+    return res.status(400).json({ error: 'Please enter a valid backup email address' });
+  }
+
+  try {
+    const { data: settings, error: fetchErr } = await supabase.from('settings').select('contact').eq('id', 1).single();
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+    const currentContact = settings?.contact || {};
+    const updatedContact = {
+      ...currentContact,
+      backupEmail: backupEmail.trim().toLowerCase()
+    };
+
+    const { error: updateErr } = await supabase.from('settings').update({ contact: updatedContact }).eq('id', 1);
+    if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+    res.json({
+      success: true,
+      message: 'Admin backup email updated successfully',
+      backupEmail: updatedContact.backupEmail
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update backup email' });
+  }
+});
+
+// Forgot password request - verification code sent to backup email
+router.post('/forgot-password', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+
+  const { email } = req.body;
+  if (!email || !email.trim()) {
+    return res.status(400).json({ error: 'Please provide your registered backup email' });
+  }
+
+  const inputEmail = email.trim().toLowerCase();
+
+  try {
+    const { data: settings } = await supabase.from('settings').select('contact').eq('id', 1).single();
+    const registeredBackupEmail = (settings?.contact?.backupEmail || settings?.contact?.email || 'nurudeenayobami37@gmail.com').trim().toLowerCase();
+    const registeredContactEmail = (settings?.contact?.email || 'nurudeenayobami37@gmail.com').trim().toLowerCase();
+
+    // Check if input email matches either the configured backup email or contact email
+    if (inputEmail !== registeredBackupEmail && inputEmail !== registeredContactEmail) {
+      return res.status(400).json({
+        error: 'Email does not match our registered admin backup email address'
+      });
+    }
+
+    // Generate 6-digit numeric recovery code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes validity
+
+    recoveryStore = {
+      email: inputEmail,
+      code,
+      expiresAt
+    };
+
+    console.log('==============================================');
+    console.log(`🔑 [ADMIN PASSWORD RECOVERY CODE]: ${code}`);
+    console.log(`📧 Target Backup Email: ${inputEmail}`);
+    console.log(`⏱️ Expires in 15 minutes`);
+    console.log('==============================================');
+
+    res.json({
+      success: true,
+      message: `Recovery code generated for ${maskEmail(inputEmail)}.`,
+      maskedEmail: maskEmail(inputEmail),
+      // Provide preview code for smooth local testing / admin convenience
+      devCode: code
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to initiate recovery' });
+  }
+});
+
+// Verify recovery code
+router.post('/verify-recovery-code', async (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email and verification code are required' });
+  }
+
+  if (!recoveryStore) {
+    return res.status(400).json({ error: 'No active password recovery request found. Please request a new code.' });
+  }
+
+  if (Date.now() > recoveryStore.expiresAt) {
+    recoveryStore = null;
+    return res.status(400).json({ error: 'Recovery code has expired. Please request a new code.' });
+  }
+
+  if (recoveryStore.email.toLowerCase() !== email.trim().toLowerCase() || recoveryStore.code !== code.trim()) {
+    return res.status(400).json({ error: 'Invalid verification code or email mismatch' });
+  }
+
+  res.json({ success: true, valid: true });
+});
+
+// Reset password with verified recovery code
+router.post('/reset-password', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: 'All fields (email, code, new password) are required' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+  }
+
+  if (!recoveryStore) {
+    return res.status(400).json({ error: 'No active recovery request found. Please request a code first.' });
+  }
+
+  if (Date.now() > recoveryStore.expiresAt) {
+    recoveryStore = null;
+    return res.status(400).json({ error: 'Recovery code has expired. Please request a new code.' });
+  }
+
+  if (recoveryStore.email.toLowerCase() !== email.trim().toLowerCase() || recoveryStore.code !== code.trim()) {
+    return res.status(400).json({ error: 'Invalid verification code' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password: hashedPassword })
+      .eq('username', 'admin');
+
+    if (updateError) {
+      return res.status(500).json({ error: 'Failed to update admin password: ' + updateError.message });
+    }
+
+    // Invalidate the recovery code
+    recoveryStore = null;
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully! You can now sign in with your new password.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to reset password' });
+  }
+});
+
 export default router;

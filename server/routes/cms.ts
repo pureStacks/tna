@@ -105,6 +105,28 @@ router.delete('/products/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// Helper to parse location and customer email
+function parseLocationData(rawLocation: string = '') {
+  if (!rawLocation) return { location: '', email: '' };
+  const emailMatch = rawLocation.match(/\|\|\s*email:([^\s]+)/i) || 
+                     rawLocation.match(/\[email:([^\]]+)\]/i) ||
+                     rawLocation.match(/\(email:([^\)]+)\)/i);
+  let email = '';
+  let location = rawLocation;
+  if (emailMatch) {
+    email = emailMatch[1].trim();
+    location = rawLocation.replace(emailMatch[0], '').trim();
+  }
+  return { location, email };
+}
+
+function formatLocationData(location: string = '', email: string = '') {
+  const cleanLoc = (location || '').trim();
+  const cleanEmail = (email || '').trim();
+  if (!cleanEmail) return cleanLoc;
+  return `${cleanLoc} || email:${cleanEmail}`;
+}
+
 // ================= TESTIMONIALS =================
 router.get('/testimonials', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
@@ -112,16 +134,27 @@ router.get('/testimonials', async (req, res) => {
   const { data, error } = await supabase.from('testimonials').select('*').order('order_index', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
   
-  res.json(data);
+  const formattedTestimonials = (data || []).map((t: any) => {
+    const { location, email } = parseLocationData(t.location);
+    return {
+      ...t,
+      rawLocation: t.location,
+      location,
+      email
+    };
+  });
+  
+  res.json(formattedTestimonials);
 });
 
 router.post('/testimonials', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
   
-  const { name, location, text, rating, is_published, order_index } = req.body;
+  const { name, location, email, text, rating, is_published, order_index } = req.body;
+  const encodedLocation = formatLocationData(location, email);
   
   const { data, error } = await supabase.from('testimonials').insert([{
-    name, location, text, rating: rating || 5, is_published: is_published ? 1 : 0, order_index: order_index || 0
+    name, location: encodedLocation, text, rating: rating || 5, is_published: is_published ? 1 : 0, order_index: order_index || 0
   }]).select().single();
   
   if (error) return res.status(500).json({ error: error.message });
@@ -132,10 +165,11 @@ router.put('/testimonials/:id', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
   
   const { id } = req.params;
-  const { name, location, text, rating, is_published, order_index } = req.body;
+  const { name, location, email, text, rating, is_published, order_index } = req.body;
+  const encodedLocation = formatLocationData(location, email);
   
   const { error } = await supabase.from('testimonials').update({
-    name, location, text, rating, is_published: is_published ? 1 : 0, order_index: order_index || 0
+    name, location: encodedLocation, text, rating, is_published: is_published ? 1 : 0, order_index: order_index || 0
   }).eq('id', id);
   
   if (error) return res.status(500).json({ error: error.message });

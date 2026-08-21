@@ -1,7 +1,13 @@
 import { BUSINESS_INFO } from '../lib/constants';
+import { useCMS } from '../context/CMSContext';
 
 export default function Footer() {
-  const currentYear = 2026; // Hardcoded per user prompt instruction for exact text or use dynamic Date but prompt says "display exactly: © 2026 TNA catfish. All Rights Reserved."
+  const { data } = useCMS();
+  const contact = data?.settings?.contact || {};
+  const address = contact.address || BUSINESS_INFO.address;
+  const email = contact.email || BUSINESS_INFO.email;
+  const whatsapp = contact.whatsapp || BUSINESS_INFO.whatsapp;
+  const whatsappRaw = contact.whatsappRaw || BUSINESS_INFO.whatsappRaw;
 
   return (
     <footer className="bg-gray-900 text-white pt-16 pb-8">
@@ -34,16 +40,16 @@ export default function Footer() {
             <h4 className="text-lg font-bold mb-6 text-white">Contact</h4>
             <ul className="space-y-4 text-gray-400">
               <li className="flex items-start">
-                <span className="block">{BUSINESS_INFO.address}</span>
+                <span className="block">{address}</span>
               </li>
               <li>
-                <a href={`mailto:${BUSINESS_INFO.email}`} className="hover:text-green-400 transition-colors break-all">
-                  {BUSINESS_INFO.email}
+                <a href={`mailto:${email}`} className="hover:text-green-400 transition-colors break-all">
+                  {email}
                 </a>
               </li>
               <li>
-                <a href={`tel:${BUSINESS_INFO.whatsappRaw}`} className="hover:text-green-400 transition-colors">
-                  {BUSINESS_INFO.whatsapp}
+                <a href={`tel:${whatsappRaw}`} className="hover:text-green-400 transition-colors">
+                  {whatsapp}
                 </a>
               </li>
             </ul>

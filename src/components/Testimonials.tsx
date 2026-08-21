@@ -1,54 +1,75 @@
 import { useState, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Star, MessageSquarePlus, CheckCircle2 } from 'lucide-react';
+import { Star, MessageSquarePlus, CheckCircle2, Mail } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useCMS } from '../context/CMSContext';
 
 export default function Testimonials() {
-  const { data, refreshData } = useCMS();
+  const { data } = useCMS();
   const initialTestimonials = data?.testimonials || [];
   
-  const [reviews, setReviews] = useState(initialTestimonials);
   const [showForm, setShowForm] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   
   // Form State
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [location, setLocation] = useState('');
   const [text, setText] = useState('');
   const [rating, setRating] = useState(5);
   const [hoveredRating, setHoveredRating] = useState(0);
 
+  const cleanLocation = (raw: string = '') => {
+    return raw.split('||')[0].split('[email:')[0].trim();
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name || !location || !text) return;
+    if (!name.trim()) return toast.error('Please enter your name');
+    if (!email.trim() || !email.includes('@')) {
+      return toast.error('Please enter a valid email address so we can reply to you');
+    }
+    if (!location.trim()) return toast.error('Please enter your location');
+    if (!text.trim()) return toast.error('Please enter your review');
 
     const newReview = {
-      name,
-      location,
-      text,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      location: location.trim(),
+      text: text.trim(),
       rating,
     };
 
+    setSubmitting(true);
     try {
-      await fetch('/api/public/review', {
+      const res = await fetch('/api/public/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newReview)
       });
       
-      setIsSubmitted(true);
-      
-      // Reset form after a delay if they want to submit another
-      setTimeout(() => {
-        setShowForm(false);
-        setIsSubmitted(false);
-        setName('');
-        setLocation('');
-        setText('');
-        setRating(5);
-      }, 4000);
+      const result = await res.json();
+      if (res.ok) {
+        setIsSubmitted(true);
+        // Reset form after a delay if they want to submit another
+        setTimeout(() => {
+          setShowForm(false);
+          setIsSubmitted(false);
+          setName('');
+          setEmail('');
+          setLocation('');
+          setText('');
+          setRating(5);
+        }, 4000);
+      } else {
+        toast.error(result.error || 'Failed to submit review');
+      }
     } catch (err) {
       console.error(err);
+      toast.error('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -89,7 +110,7 @@ export default function Testimonials() {
                   </div>
                   <div>
                     <h5 className="font-bold text-gray-900">{testimonial.name}</h5>
-                    <span className="text-sm text-gray-500">{testimonial.location}, Nigeria</span>
+                    <span className="text-sm text-gray-500">{cleanLocation(testimonial.location) || 'Nigeria'}</span>
                   </div>
                 </div>
               </motion.div>
@@ -106,7 +127,7 @@ export default function Testimonials() {
               <p className="text-gray-600 mb-6">We would love to hear about your experience.</p>
               <button 
                 onClick={() => setShowForm(true)}
-                className="bg-green-700 hover:bg-green-800 text-white px-8 py-3 rounded-full font-bold transition-colors"
+                className="bg-green-700 hover:bg-green-800 text-white px-8 py-3 rounded-full font-bold transition-colors shadow-sm"
               >
                 Write a Review
               </button>
@@ -119,19 +140,25 @@ export default function Testimonials() {
             >
               <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h4 className="text-2xl font-bold text-gray-900 mb-2">Thank you for your review!</h4>
-              <p className="text-gray-600">Your feedback helps us continue providing quality service.</p>
+              <p className="text-gray-600">Your feedback has been received and our team may follow up with you via email.</p>
             </motion.div>
           ) : (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <h4 className="text-2xl font-bold text-gray-900 mb-6 border-b border-gray-100 pb-4">Leave Your Feedback</h4>
+              <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+                <div>
+                  <h4 className="text-2xl font-bold text-gray-900">Leave Your Feedback</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Please provide your details so our team can follow up and reply to you.</p>
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-5">
                 
                 {/* Rating Input */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Rating</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Rating *</label>
                   <div className="flex space-x-1">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -156,40 +183,67 @@ export default function Testimonials() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-1">Name</label>
+                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-1">Your Name *</label>
                     <input 
                       type="text" 
                       id="name"
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
-                      placeholder="e.g. David"
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-gray-900"
+                      placeholder="e.g. David Adebayo"
                     />
                   </div>
                   <div>
-                    <label htmlFor="location" className="block text-sm font-semibold text-gray-700 mb-1">Location (City)</label>
+                    <label htmlFor="location" className="block text-sm font-semibold text-gray-700 mb-1">City / Location *</label>
                     <input 
                       type="text" 
                       id="location"
                       required
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
-                      placeholder="e.g. Lagos"
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-gray-900"
+                      placeholder="e.g. Oshogbo, Osun State"
                     />
                   </div>
                 </div>
 
+                {/* Email Address - Requested before submission so admin can reply */}
                 <div>
-                  <label htmlFor="review" className="block text-sm font-semibold text-gray-700 mb-1">Your Review</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
+                      Your Email Address *
+                    </label>
+                    <span className="text-xs text-green-700 font-medium">Used for admin reply</span>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input 
+                      type="email" 
+                      id="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all text-gray-900"
+                      placeholder="e.g. yourname@example.com"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Your email is kept confidential and will not be displayed on the public website. It allows our administration team to reply to your feedback.
+                  </p>
+                </div>
+
+                <div>
+                  <label htmlFor="review" className="block text-sm font-semibold text-gray-700 mb-1">Your Review *</label>
                   <textarea 
                     id="review"
                     required
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     rows={4}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all resize-none"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all resize-none text-gray-900"
                     placeholder="Tell us about your experience with our catfish..."
                   ></textarea>
                 </div>
@@ -198,15 +252,16 @@ export default function Testimonials() {
                   <button 
                     type="button"
                     onClick={() => setShowForm(false)}
-                    className="px-6 py-3 rounded-lg font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                    className="px-6 py-2.5 rounded-lg font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit"
-                    className="bg-green-700 hover:bg-green-800 text-white px-8 py-3 rounded-lg font-bold transition-colors shadow-sm"
+                    disabled={submitting}
+                    className="bg-green-700 hover:bg-green-800 text-white px-8 py-2.5 rounded-lg font-bold transition-colors shadow-sm disabled:opacity-50"
                   >
-                    Submit Review
+                    {submitting ? 'Submitting...' : 'Submit Review'}
                   </button>
                 </div>
 
@@ -219,3 +274,4 @@ export default function Testimonials() {
     </section>
   );
 }
+

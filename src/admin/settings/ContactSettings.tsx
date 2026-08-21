@@ -5,7 +5,7 @@ export default function ContactSettings({ data, onChange, onSave }: { data: any,
       
       <div className="grid grid-cols-2 gap-6">
         <div className="col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Physical Address</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Physical Farm Address</label>
           <input
             type="text"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
@@ -14,12 +14,24 @@ export default function ContactSettings({ data, onChange, onSave }: { data: any,
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Public Customer Email</label>
+          <p className="text-xs text-gray-500 mb-2">Visible on website contact & footer sections</p>
           <input
             type="email"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
             value={data.email || ''}
             onChange={(e) => onChange({ ...data, email: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Admin Backup & Recovery Email</label>
+          <p className="text-xs text-gray-500 mb-2">Used to reset admin password when forgotten</p>
+          <input
+            type="email"
+            placeholder="e.g. backup@gmail.com"
+            className="w-full px-4 py-2 border border-green-300 bg-green-50/30 rounded-lg focus:ring-green-500 focus:border-green-500"
+            value={data.backupEmail || ''}
+            onChange={(e) => onChange({ ...data, backupEmail: e.target.value })}
           />
         </div>
         <div>

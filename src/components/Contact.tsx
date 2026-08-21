@@ -1,8 +1,19 @@
 import { motion } from 'motion/react';
 import { MapPin, Mail, Phone, MessageCircle } from 'lucide-react';
-import { BUSINESS_INFO, getWhatsAppLink } from '../lib/constants';
+import { BUSINESS_INFO } from '../lib/constants';
+import { useCMS } from '../context/CMSContext';
 
 export default function Contact() {
+  const { data } = useCMS();
+  const contact = data?.settings?.contact || {};
+
+  const address = contact.address || BUSINESS_INFO.address;
+  const email = contact.email || BUSINESS_INFO.email;
+  const whatsapp = contact.whatsapp || BUSINESS_INFO.whatsapp;
+  const whatsappRaw = contact.whatsappRaw || BUSINESS_INFO.whatsappRaw;
+  const whatsappMessage = contact.whatsappMessage || BUSINESS_INFO.whatsappMessage;
+  const whatsappLink = `https://wa.me/${whatsappRaw}?text=${encodeURIComponent(whatsappMessage)}`;
+
   return (
     <section id="contact" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -30,7 +41,7 @@ export default function Contact() {
                 </div>
                 <div className="ml-4">
                   <h4 className="text-lg font-bold text-gray-900">Farm Location</h4>
-                  <p className="text-gray-600">{BUSINESS_INFO.address}</p>
+                  <p className="text-gray-600">{address}</p>
                 </div>
               </div>
               
@@ -40,11 +51,11 @@ export default function Contact() {
                 </div>
                 <div className="ml-4">
                   <h4 className="text-lg font-bold text-gray-900">Phone & WhatsApp</h4>
-                  <a href={`tel:${BUSINESS_INFO.whatsappRaw}`} className="text-gray-600 hover:text-green-700 transition-colors block">
-                    {BUSINESS_INFO.whatsapp}
+                  <a href={`tel:${whatsappRaw}`} className="text-gray-600 hover:text-green-700 transition-colors block">
+                    {whatsapp}
                   </a>
                   <a 
-                    href={getWhatsAppLink()} 
+                    href={whatsappLink} 
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-green-700 font-semibold hover:text-green-800 transition-colors inline-flex items-center mt-1"
@@ -60,8 +71,8 @@ export default function Contact() {
                 </div>
                 <div className="ml-4">
                   <h4 className="text-lg font-bold text-gray-900">Email Address</h4>
-                  <a href={`mailto:${BUSINESS_INFO.email}`} className="text-gray-600 hover:text-green-700 transition-colors">
-                    {BUSINESS_INFO.email}
+                  <a href={`mailto:${email}`} className="text-gray-600 hover:text-green-700 transition-colors">
+                    {email}
                   </a>
                 </div>
               </div>
@@ -81,9 +92,9 @@ export default function Contact() {
                   <div className="bg-white/90 p-6 rounded-2xl shadow-xl max-w-sm">
                     <MapPin className="w-10 h-10 text-green-700 mx-auto mb-3" />
                     <h5 className="font-bold text-gray-900 text-lg mb-1">TNA Catfish</h5>
-                    <p className="text-gray-600 text-sm">{BUSINESS_INFO.address}</p>
+                    <p className="text-gray-600 text-sm">{address}</p>
                     <a 
-                      href={`https://maps.google.com/?q=${encodeURIComponent(BUSINESS_INFO.address)}`}
+                      href={`https://maps.google.com/?q=${encodeURIComponent(address)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-4 inline-block bg-green-100 text-green-800 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-200 transition-colors"
