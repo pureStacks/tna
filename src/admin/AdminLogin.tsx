@@ -169,7 +169,6 @@ export default function AdminLogin() {
                     <span>Forgot password?</span>
                   </button>
                 </div>
-                <span className="text-xs text-gray-400">Default: @admin123</span>
               </div>
 
               <div>
